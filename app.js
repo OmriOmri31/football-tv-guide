@@ -103,7 +103,7 @@ const fmt = (iso, tz, opts) => new Intl.DateTimeFormat('en-GB', { timeZone: tz, 
 const STATUS = {
   confirmed: ['Confirmed', 'From a TV listing'],
   notlisted: ['Not listed yet', 'No TV guide lists this match here yet'],
-  none: ['Not on your channels', ''],
+  none: ['Not on TV', 'The guide lists every televised game and this one is not in it'],
 };
 function chip(c) {
   return el('span', { class: `chip${c.is4k ? ' k4' : ''}${c.kind === 'stream' ? ' stream' : ''}` }, c.name, c.num ? el('small', {}, ` ch ${c.num}`) : null, c.is4k ? el('b', {}, '4K') : null, c.flag ? el('em', { class: 'flag' }, ` · ${c.flag}`) : null);
@@ -119,7 +119,6 @@ function regionBlock(region, r) {
     r.channels.length
       ? el('div', { class: 'chips' }, r.channels.map(chip))
       : el('div', { class: 'nochan' }, r.why[0]),
-    r.others?.length ? el('div', { class: 'others' }, 'Also on (not yours): ', r.others.map((c) => c.name).join(', ')) : null,
     el('details', {}, el('summary', {}, 'Why'), el('ul', {}, r.why.map((w) => el('li', {}, w))),
       (r.sources || []).map((g) => el('a', { href: g.url, target: '_blank', rel: 'noopener', class: 'src' }, g.name))));
 }
@@ -141,10 +140,10 @@ async function fixtureCard(fx, open) {
   const overlap = await overlapFor(fx);
   const res = channelsFor(fx, { listings: LISTINGS.listings, horizon: horizons(), generatedAt: LISTINGS.generatedAt, overlap, charlton: CHARLTON });
   const live = fx.state === 'in';
-  const mineCount = MY_REGIONS.reduce((n, rg) => n + (res[rg].status !== 'none' ? res[rg].channels.filter((c) => c.kind !== 'stream').length : 0), 0);
-  const body = el('div', { class: 'regions' }, MY_REGIONS.map((rg) => regionBlock(rg, res[rg])),
-    el('div', { class: 'infohead' }, 'Other countries · for reference, not your subscriptions'),
-    el('div', { class: 'info' }, INFO_REGIONS.map((rg) => infoRow(rg, res[rg]))));
+  const ALL = [...MY_REGIONS, ...INFO_REGIONS];
+  const chanCount = ALL.reduce((n, rg) => n + res[rg].channels.length, 0);
+  const k4Count = ALL.reduce((n, rg) => n + res[rg].channels.filter((c) => c.is4k).length, 0);
+  const body = el('div', { class: 'regions' }, ALL.map((rg) => regionBlock(rg, res[rg])));
   const card = el('article', { class: `fixture${open ? ' open' : ''}` },
     el('div', { class: 'teams', onclick: () => card.classList.toggle('open') },
       el('div', { class: 'team' }, fx.homeLogo ? el('img', { src: fx.homeLogo, alt: '', loading: 'lazy' }) : null, el('span', {}, fx.home)),
@@ -158,7 +157,7 @@ async function fixtureCard(fx, open) {
       el('span', {}, `UK ${fmt(fx.kickoff, 'Europe/London', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} · SG ${fmt(fx.kickoff, 'Asia/Singapore', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' })}`),
       overlap > 1 ? el('span', { class: 'ov', title: 'Games in the same competition kicking off together' }, `${overlap} games at this time`) : null,
       !fx.timeValid ? el('span', { class: 'ov' }, 'kick-off time TBC') : null,
-      el('span', { class: 'count' }, mineCount ? `${mineCount} of your channels` : 'not on your channels')),
+      el('span', { class: 'count' }, chanCount ? `${chanCount} channel${chanCount > 1 ? 's' : ''}${k4Count ? ` · ${k4Count} in 4K` : ''}` : 'no channel listed yet')),
     body);
   return card;
 }

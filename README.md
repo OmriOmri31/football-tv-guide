@@ -2,7 +2,7 @@
 
 Which of **my** channels show the next match? A small static web app: the home page shows Tottenham Hotspur's next fixture; search any team to see its next fixtures.
 
-Channels covered: **UK** Sky Sports and TNT Sports (incl. 4K: Sky Sports Ultra HDR, TNT Sports Ultimate) and TLC (only when a listing shows football on it); **Israel** Charlton Sport 1–4 and the Sport 5 family; **Singapore** all sports channels (StarHub Hub Premier / Hub Sports, beIN Sports SG, Singtel mio Sports).
+Channels covered: every channel the guides list in the UK, Israel, Singapore, USA, Australia, Canada, India and New Zealand (all count as available).
 
 ## How channels are matched
 1. **Confirmed**: Israel – Charlton's official EPG (`sport1.maariv.co.il/wp-json/sport1/v1/broadcast`, fetched live in the browser, snapshot as fallback), matched by kick-off time, competition and Hebrew club names (`charlton.js`). Otherwise a published TV listing for that fixture and region (UK: live-footballontv.com, cross-checked with livesoccertv's Great Britain row; Israel, Singapore, USA, Australia, Canada, India, New Zealand: livesoccertv.com match pages). Refreshed every 4 hours by a GitHub Action into `data/listings.json`.
@@ -11,6 +11,6 @@ Channels covered: **UK** Sky Sports and TNT Sports (incl. 4K: Sky Sports Ultra H
 
 No API keys or secrets. Always double-check the broadcaster's own guide.
 
-USA, Australia, Canada, India, New Zealand are informational regions: their guide-listed channels are shown separately from my own channels.
+All eight countries (UK, Israel, Singapore, USA, Australia, Canada, India, New Zealand) are shown equally; every channel a guide lists counts as available. 4K/Ultra HD channels (e.g. TNT Sports Ultimate, Sky Sports Ultra HDR) are bold only when the guide lists that 4K channel for the match itself.
 
 Channel names are shown exactly as listed (e.g. "TSN4", "Sky Sports Premier League", "Hub Premier 2"). A family/package name ("TSN", "NBC", "Sky Sports TBC", "TSN Premium") is dropped if any guide names the exact channel, otherwise flagged "exact channel not published yet".

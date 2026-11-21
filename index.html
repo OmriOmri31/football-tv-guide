@@ -32,13 +32,14 @@
   <section class="legend">
     <span class="badge confirmed">Confirmed</span> from a published TV listing ·
     <span class="badge notlisted">Not listed yet</span> no TV guide lists it yet (no guessing) ·
-    <span class="badge none">Not on your channels</span>
+    <span class="badge none">Not on TV</span> not in the UK guide that lists every televised game ·
+    <span class="chip k4 k4legend">4K<b>4K</b></span> bold = a 4K/Ultra HD channel the guide lists for that exact match
   </section>
   <p id="fresh" class="fresh"></p>
   <details class="about">
     <summary>How it works &amp; sources</summary>
     <p>Fixtures come live from ESPN's public API (TheSportsDB as fallback). Israel uses Charlton's own TV schedule (sport1.maariv.co.il), loaded live. Other listings are refreshed every few hours by a GitHub Action: UK from live-footballontv.com; UK (cross-check), Israel, Singapore, USA, Australia, Canada, India and New Zealand from livesoccertv.com match pages. Every channel shown comes from at least one of these guides, and channels from several guides are merged and cross-checked. Nothing is guessed: if no guide lists the match yet, it says “Not listed yet”. Channels are shown exactly as the guides name them (e.g. Sky Sports Premier League, TNT Sports 2, Hub Premier 2, TSN4); a family or package name (e.g. “TSN Premium”, “Sky Sports TBC”) is dropped when another guide names the exact channel, otherwise it is flagged “exact channel not published yet”.</p>
-    <p>Your channels: Sky Sports &amp; TNT Sports (UK, incl. 4K), TLC (only when a listing shows football on it), Charlton Sport 1–4 (+ Sport 6) and the Sport 5 family (Israel), all Singapore sports channels (StarHub Hub Premier / Hub Sports, beIN SG, Singtel mio). USA, Australia, Canada, India, New Zealand are shown for reference only (from the same guides), not as your channels. Always double-check the broadcaster's own guide.</p>
+    <p>All channels in all eight countries (UK, Israel, Singapore, USA, Australia, Canada, India, New Zealand) are treated as available to you, including apps such as Prime Video, Disney+, Sky Go, NOW and One Sport. 4K/Ultra HD channels are shown in bold only when the guide lists that 4K channel for that exact match; 4K is never inferred from the HD channel. Always double-check the broadcaster's own guide.</p>
   </details>
 </main>
 <script type="module" src="app.js"></script>

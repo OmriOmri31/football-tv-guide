@@ -60,7 +60,8 @@ export function classify(region, raw) {
   let num = null;
   const m = name.match(/^(\d{2,4})\s+(.*)$/); // "221 Hub Premier 1"
   if (m) { num = m[1]; name = m[2]; }
-  const is4k = /ultra hdr|ultimate|4k|uhd/i.test(name);
+  // 4K only when the guide names a 4K/UHD channel for this match (never inferred from the HD channel).
+  const is4k = /ultra ?hd|ultimate|\b4k\b|uhd/i.test(name);
   const tbc = /tbc/i.test(name);
   let mine = false, kind = 'tv';
   if (region === 'UK') {
@@ -141,13 +142,13 @@ function ukRule(comp, fx, overlap) {
       return R('likely', comp === 'EFLC' ? ['Sky Sports Football', 'Sky Sports Main Event', 'Sky Sports+'] : ['Sky Sports Football', 'Sky Sports+'], ['Sky Sports holds EFL (League, Carabao Cup) UK rights 2024–29; many games stream on Sky Sports+.'], { oneOf: true });
     case 'FAC':
       if (sat3pm) return R('none', [], [blackout]);
-      return R('uncertain', ['TNT Sports 1–4'], ['FA Cup UK rights 2025–29: TNT Sports and BBC. Not every tie is televised and some go to BBC only (BBC is not in your channels).'], { oneOf: true });
+      return R('uncertain', ['TNT Sports 1–4'], ['FA Cup UK rights 2025–29: TNT Sports and BBC. Not every tie is televised and some go to BBC only.'], { oneOf: true });
     case 'SHIELD': return R('likely', TNT_MAIN, ['TNT Sports shows the Community Shield.']);
     case 'UCL': {
       const tue = t.dow === 'Tue' && t.h >= 19;
       return R('likely', overlap > 1 ? TNT_SPREAD : TNT_MAIN, [
         'UEFA club competitions in the UK 2024–27: TNT Sports.',
-        tue ? 'Exception: Amazon Prime Video has the first-pick Tuesday-night UCL game in the UK. If this is that game, it is NOT on TNT (Prime is not in your channels).' : '',
+        tue ? 'Exception: Amazon Prime Video has the first-pick Tuesday-night UCL game in the UK. If this is that game, it is NOT on TNT.' : '',
         overlap > 1 ? `${overlap} UCL games at the same time → TNT spreads them over TNT Sports 1–4 and 5–10.` : '',
       ].filter(Boolean), { oneOf: overlap > 1, caveat: tue ? 'Prime Video Tuesday pick risk' : null });
     }
@@ -155,13 +156,13 @@ function ukRule(comp, fx, overlap) {
       return R(comp.endsWith('Q') ? 'uncertain' : 'likely', TNT_SPREAD, ['UEFA club competitions in the UK 2024–27: TNT Sports (qualifiers are sold separately and may not be shown).'], { oneOf: true });
     case 'BUND': {
       if (t.dow === 'Sat' && t.mins >= 17 * 60 && t.mins < 18 * 60) return R('likely', ['Sky Sports Football', 'Sky Sports Main Event', 'Sky Sports+'], ['Bundesliga UK 2025–29: Sky Sports has the Saturday 17:30 top match.'], { oneOf: true });
-      if (t.dow === 'Fri') return R('none', [], ['Bundesliga Friday-night games in the UK stream on the BBC, not on your channels.']);
+      if (t.dow === 'Fri') return R('none', [], ['Bundesliga Friday-night games in the UK stream on the BBC.']);
       return R('uncertain', ['Sky Sports+'], ['Bundesliga UK 2025–29: Sky shows selected games; many others are on Bundesliga YouTube/app.'], { oneOf: true });
     }
-    case 'SERIEA': return R('uncertain', ['TNT Sports 1–4', 'HBO Max'], ['Serie A UK 2026–27: every game on DAZN (not yours); TNT Sports shows selected games only.'], { oneOf: true });
+    case 'SERIEA': return R('uncertain', ['TNT Sports 1–4', 'HBO Max'], ['Serie A UK 2026–27: every game on DAZN; TNT Sports shows selected games only.'], { oneOf: true });
     case 'SPL': return R('likely', ['Sky Sports Football', 'Sky Sports Main Event'], ['Scottish Premiership UK live rights: Sky Sports.'], { oneOf: true });
-    case 'LALIGA': return R('none', [], ['LaLiga in the UK is on Premier Sports, which is not in your channels.']);
-    case 'L1': return R('none', [], ['Ligue 1 in the UK streams on Ligue1+, not on your channels.']);
+    case 'LALIGA': return R('none', [], ['LaLiga in the UK is on Premier Sports.']);
+    case 'L1': return R('none', [], ['Ligue 1 in the UK streams on Ligue1+.']);
     case 'ISR': case 'ISRCUP': return R('none', [], ['No UK broadcaster for Israeli football found.']);
     default: return R('uncertain', [], ['No verified UK rights rule for this competition.']);
   }
@@ -181,7 +182,7 @@ function ilRule(comp, fx, overlap) {
     case 'ISRCUP': return R('uncertain', [...CHARLTON, 'Sport 5'], ['Israeli cup rights not verified.'], { oneOf: true });
     case 'BUND': return R('likely', CHARLTON, ['Bundesliga in Israel: Charlton (selected games).'], { oneOf: true });
     case 'L1': return R('uncertain', ['5Plus'], ['Recent listings show Ligue 1 on Sport 5 (5Plus) for selected games.'], { oneOf: true });
-    case 'LALIGA': return R('none', [], ['Recent listings show LaLiga in Israel on ONE (One Sport), not in your channels.']);
+    case 'LALIGA': return R('none', [], ['Recent listings show LaLiga in Israel on ONE (One Sport).']);
     case 'SERIEA': return R('uncertain', CHARLTON, ['Serie A in Israel is split (ONE2 / Charlton Sport 2 & 6 in recent listings).'], { oneOf: true });
     default: return R('uncertain', [], ['No verified Israeli rights rule for this competition.']);
   }
@@ -343,12 +344,14 @@ export function channelsFor(fx, ctx) {
         return !all.some((o) => o !== c && !o.family && o.name.toLowerCase().startsWith(root));
       });
       for (const c of all) if (c.family) c.flag = 'exact channel not published yet';
-      const mine = info ? all : all.filter((c) => c.mine), others = info ? [] : all.filter((c) => !c.mine);
+      // Omri has every channel in every listed country, so everything a guide lists is shown. 4K first.
+      all.sort((a, b) => (b.is4k ? 1 : 0) - (a.is4k ? 1 : 0) || (a.kind === 'stream') - (b.kind === 'stream'));
       const listedBy = sources.map((s) => s.name);
       const why = [...epgWhy, ...sources.filter((s) => s.name !== "Charlton's TV schedule").map((s) => `${s.name} lists: ${s.channels.map((c) => c.name).join(', ')}.`)];
       if (sources.length > 1) why.push(`Cross-checked in ${sources.length} guides.`);
-      if (mine.length) { out[region] = { status: 'confirmed', channels: mine, others, sources, guides: listedBy, url: sources[0].url, why: [...why, ...context] }; continue; }
-      out[region] = { status: 'none', channels: [], others, sources, guides: listedBy, url: sources[0].url, why: [`Listed by ${listedBy.join(' and ')}, but only on channels you don't have.`, ...why] };
+      const k4 = all.filter((c) => c.is4k);
+      if (k4.length) why.push(`4K: ${k4.map((c) => c.name).join(', ')} is listed by the guide for this match itself.`);
+      out[region] = { status: 'confirmed', channels: all, others: [], sources, guides: listedBy, url: sources[0].url, why: [...why, ...context] };
       continue;
     }
     // No guide lists this match for this country.
