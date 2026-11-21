@@ -87,10 +87,11 @@ const LSTV_COMPS = new Set([
   'Spain - La Liga', 'Spain - Copa del Rey', 'Germany - Bundesliga', 'Germany - DFB Pokal', 'Italy - Serie A', 'Italy - Coppa Italia', 'France - Ligue 1',
   'Scotland - Scottish Premiership', 'Israel - Ligat Ha\'Al', 'Israel - State Cup', 'Israel - Toto Cup',
 ]);
-const KEEP_COUNTRIES = new Set(['Israel', 'Singapore']);
+const KEEP_COUNTRIES = { Israel: 'IL', Singapore: 'SG', USA: 'US', Australia: 'AU', Canada: 'CA', India: 'IN' };
 
 function ymd(d) { return d.toISOString().slice(0, 10); }
 
+let lstvCount = 0;
 async function lstvListings() {
   const matches = new Map();
   const cidName = new Map();
@@ -152,27 +153,41 @@ async function lstvListings() {
     const byCountry = {};
     for (const x of h.matchAll(/<span class="flag [^"]*">([^<]*)<\/span><\/td><td valign='top'>([\s\S]*?)<\/td><\/tr>/g)) {
       const c = strip(x[1]);
-      if (!KEEP_COUNTRIES.has(c)) continue;
+      if (!KEEP_COUNTRIES[c]) continue;
       byCountry[c] = [...x[2].matchAll(/>([^<]+)<\/a>/g)].map((y) => strip(y[1])).filter(Boolean);
     }
     const base = { source: 'livesoccertv.com', url: `https://www.livesoccertv.com${mt.path}`, kickoff: mt.kickoff, home: mt.home, away: mt.away, comp: mt.comp };
-    // Always emit a row per region (empty channels = listing exists but no local broadcaster listed).
-    out.push({ ...base, region: 'IL', channels: byCountry.Israel || [] });
-    out.push({ ...base, region: 'SG', channels: byCountry.Singapore || [] });
+    // Only emit a region when the page actually has a row for that country.
+    // A missing country row means "no data", NOT "not on TV there" (this caused the Spurs v Ipswich / Sport 1 bug).
+    out.push({ ...base, region: 'FX', channels: [] }); // fixture-only row (used when the APIs lack a team)
+    for (const [country, region] of Object.entries(KEEP_COUNTRIES)) {
+      if (byCountry[country]) out.push({ ...base, region, channels: byCountry[country] });
+    }
+    lstvCount++;
   }
   return out;
 }
 
-const [uk, lstv] = await Promise.all([ukListings(), lstvListings()]);
+// Charlton (Sport 1-4, 6) official EPG. The browser fetches it live; this snapshot is the fallback.
+async function charltonEpg() {
+  const t = await get('https://sport1.maariv.co.il/wp-json/sport1/v1/broadcast');
+  if (!t) return null;
+  try { const d = JSON.parse(t); return Array.isArray(d.broadcast) ? d : null; } catch { return null; }
+}
+
+await mkdir('data', { recursive: true });
+const [uk, lstv, epg] = await Promise.all([ukListings(), lstvListings(), charltonEpg()]);
+if (epg) await writeFile('data/charlton.json', JSON.stringify(epg));
+console.log(`charlton EPG: ${epg ? epg.broadcast.reduce((n, c) => n + c.shows.length, 0) + ' shows' : 'unavailable'}`);
 const data = {
   generatedAt: new Date().toISOString(),
   sources: {
     UK: { name: 'live-footballontv.com', count: uk.length },
-    IL_SG: { name: 'livesoccertv.com', count: lstv.length / 2, days: DAYS },
+    IL_SG: { name: 'livesoccertv.com', count: lstvCount, days: DAYS },
+    IL_EPG: { name: 'sport1.maariv.co.il (Charlton EPG)', ok: !!epg },
   },
   listings: [...uk, ...lstv],
 };
-await mkdir('data', { recursive: true });
 await writeFile('data/listings.json', JSON.stringify(data));
-console.log(`wrote data/listings.json: UK ${uk.length}, IL/SG matches ${lstv.length / 2}`);
+console.log(`wrote data/listings.json: UK ${uk.length}, livesoccertv matches ${lstvCount}`);
 if (!uk.length && !lstv.length) process.exit(1);

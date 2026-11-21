@@ -43,3 +43,8 @@ details{margin-top:6px;font-size:12.5px;color:var(--mut)}summary{cursor:pointer}
 .fresh{font-size:12px;color:var(--mut)}
 .about{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0 40px}
 .loading,.empty{padding:30px;text-align:center;color:var(--mut)}
+.infohead{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);padding:10px 12px 4px;border-top:1px dashed var(--line)}
+.info{padding:0 12px 10px}
+.irow{display:grid;grid-template-columns:96px 1fr auto;gap:8px;align-items:center;font-size:12.5px;color:var(--mut);padding:4px 0;border-bottom:1px solid var(--line)}
+.irow:last-child{border-bottom:0}.iname{font-weight:600;color:var(--ink)}
+.badge.sm{font-size:10.5px;padding:1px 6px;opacity:.85}

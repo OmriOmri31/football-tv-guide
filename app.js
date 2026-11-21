@@ -1,4 +1,5 @@
-import { REGIONS, compKey, COMP_NAME, channelsFor, sameTeam } from './rules.js';
+import { REGIONS, MY_REGIONS, INFO_REGIONS, compKey, COMP_NAME, channelsFor, sameTeam, norm } from './rules.js';
+import { parseEpg } from './charlton.js';
 
 const ESPN = 'https://site.web.api.espn.com/apis/site/v2/sports/soccer';
 const ESPN_SEARCH = 'https://site.web.api.espn.com/apis/search/v2';
@@ -17,8 +18,17 @@ const el = (tag, attrs = {}, ...kids) => {
 const getJSON = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(`${r.status} ${u}`); return r.json(); };
 
 let LISTINGS = { listings: [], generatedAt: null, sources: {} };
+let CHARLTON = [], CHARLTON_SRC = null;
 async function loadListings() {
-  try { LISTINGS = await getJSON(`data/listings.json?t=${Math.floor(Date.now() / 600000)}`); } catch { /* rules only */ }
+  const bust = Math.floor(Date.now() / 600000);
+  const [l, live] = await Promise.all([
+    getJSON(`data/listings.json?t=${bust}`).catch(() => null),
+    getJSON('https://sport1.maariv.co.il/wp-json/sport1/v1/broadcast').catch(() => null), // Charlton EPG, live (CORS allows this site)
+  ]);
+  if (l) LISTINGS = l;
+  let epg = live; CHARLTON_SRC = live ? 'live' : null;
+  if (!epg) { epg = await getJSON(`data/charlton.json?t=${bust}`).catch(() => null); if (epg) CHARLTON_SRC = 'snapshot'; }
+  CHARLTON = epg ? parseEpg(epg) : [];
 }
 function horizons() {
   const max = {};
@@ -66,7 +76,7 @@ function listingFixtures(name) {
     if (!(sameTeam(l.home, name) || sameTeam(l.away, name))) continue;
     if (/women|u1\d|u2\d/i.test(l.home + l.away) && !/women|u1\d|u2\d/i.test(name)) continue;
     if (new Date(l.kickoff).getTime() < Date.now() - 3 * 3600e3) continue;
-    const k = `${l.kickoff}|${l.home}`;
+    const k = `${l.kickoff.slice(0, 13)}|${norm(l.home)}`;
     if (!seen.has(k)) seen.set(k, { id: k, kickoff: l.kickoff, timeValid: true, home: l.home, away: l.away, leagueName: l.comp.replace(/^\w+ - /, ''), comp: compKey({ name: l.comp }), state: 'pre', src: l.source });
   }
   return [...seen.values()].sort((a, b) => a.kickoff.localeCompare(b.kickoff));
@@ -113,6 +123,14 @@ function regionBlock(region, r) {
     el('details', {}, el('summary', {}, 'Why'), el('ul', {}, r.why.map((w) => el('li', {}, w))),
       r.url ? el('a', { href: r.url, target: '_blank', rel: 'noopener' }, 'Source listing') : null));
 }
+function infoRow(region, r) {
+  const R = REGIONS[region];
+  const [label] = STATUS[r.status] || STATUS.uncertain;
+  return el('div', { class: 'irow' },
+    el('span', { class: 'iname' }, `${R.flag} ${R.name}`),
+    el('span', { class: 'ichans' }, r.channels.length ? r.channels.map((c) => c.name).join(' · ') : (r.status === 'none' ? 'no broadcaster found' : '—')),
+    el('span', { class: `badge sm ${r.status}`, title: r.why.join(' ') }, r.status === 'none' ? 'None' : label));
+}
 function countdown(iso) {
   const ms = new Date(iso).getTime() - Date.now();
   if (ms <= 0) return null;
@@ -121,10 +139,12 @@ function countdown(iso) {
 }
 async function fixtureCard(fx, open) {
   const overlap = await overlapFor(fx);
-  const res = channelsFor(fx, { listings: LISTINGS.listings, horizon: horizons(), generatedAt: LISTINGS.generatedAt, overlap });
+  const res = channelsFor(fx, { listings: LISTINGS.listings, horizon: horizons(), generatedAt: LISTINGS.generatedAt, overlap, charlton: CHARLTON });
   const live = fx.state === 'in';
-  const mineCount = Object.values(res).reduce((n, r) => n + (r.status !== 'none' ? r.channels.length : 0), 0);
-  const body = el('div', { class: 'regions' }, ['UK', 'IL', 'SG'].map((rg) => regionBlock(rg, res[rg])));
+  const mineCount = MY_REGIONS.reduce((n, rg) => n + (res[rg].status !== 'none' ? res[rg].channels.filter((c) => c.kind !== 'stream').length : 0), 0);
+  const body = el('div', { class: 'regions' }, MY_REGIONS.map((rg) => regionBlock(rg, res[rg])),
+    el('div', { class: 'infohead' }, 'Other countries · for reference, not your subscriptions'),
+    el('div', { class: 'info' }, INFO_REGIONS.map((rg) => infoRow(rg, res[rg]))));
   const card = el('article', { class: `fixture${open ? ' open' : ''}` },
     el('div', { class: 'teams', onclick: () => card.classList.toggle('open') },
       el('div', { class: 'team' }, fx.homeLogo ? el('img', { src: fx.homeLogo, alt: '', loading: 'lazy' }) : null, el('span', {}, fx.home)),
@@ -208,7 +228,7 @@ async function main() {
   });
   await loadListings();
   const g = LISTINGS.generatedAt;
-  $('#fresh').textContent = g ? `Listings updated ${fmt(g, 'Asia/Jerusalem', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} (Israel time). Fixtures are fetched live.` : 'Listings unavailable – showing rule-based channels only.';
+  $('#fresh').textContent = (g ? `Listings updated ${fmt(g, 'Asia/Jerusalem', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} (Israel time). ` : 'Listings unavailable – rules only. ') + `Charlton schedule: ${CHARLTON_SRC === 'live' ? 'live' : CHARLTON_SRC === 'snapshot' ? 'snapshot' : 'unavailable'}. Fixtures are fetched live.`;
   const p = new URLSearchParams(location.search);
   const team = p.get('id') ? { source: p.get('src') || 'espn', id: p.get('id'), name: p.get('team') || 'Team' } : DEFAULT_TEAM;
   showTeam(team);

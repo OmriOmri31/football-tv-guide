@@ -5,7 +5,15 @@ export const REGIONS = {
   UK: { name: 'United Kingdom', flag: '🇬🇧', tz: 'Europe/London' },
   IL: { name: 'Israel', flag: '🇮🇱', tz: 'Asia/Jerusalem' },
   SG: { name: 'Singapore', flag: '🇸🇬', tz: 'Asia/Singapore' },
+  // Informational: other countries' rights holders (not Omri's subscriptions).
+  US: { name: 'USA', flag: '🇺🇸', tz: 'America/New_York', info: true },
+  AU: { name: 'Australia', flag: '🇦🇺', tz: 'Australia/Sydney', info: true },
+  CA: { name: 'Canada', flag: '🇨🇦', tz: 'America/Toronto', info: true },
+  IN: { name: 'India', flag: '🇮🇳', tz: 'Asia/Kolkata', info: true },
 };
+export const MY_REGIONS = ['UK', 'IL', 'SG'];
+export const INFO_REGIONS = ['US', 'AU', 'CA', 'IN'];
+import { charltonFor } from './charlton.js';
 
 // ---------- competition keys ----------
 const ESPN_COMP = {
@@ -58,10 +66,14 @@ export function classify(region, raw) {
     mine = /^sky sports/i.test(name) || /^tnt sports/i.test(name) || /^tlc\b/i.test(name);
     if (/hbo max|discovery\+|now\b|sky go|iplayer|youtube|website|app|play|prime/i.test(name)) kind = 'stream';
   } else if (region === 'IL') {
-    mine = /^sport ?[1-4]\b/i.test(name) || /^(sport ?5|5 ?(plus|live|stars|gold|sport)|sport ?5 ?4k)/i.test(name);
+    // Charlton Sport 1-4 (+ Sport 6, same Charlton package) and the Sport 5 family (RGE).
+    mine = /^sport ?[1-46]\b/i.test(name) || /^(sport ?5|5 ?(plus|live|stars|gold|sport)|sport ?5 ?4k)/i.test(name);
   } else if (region === 'SG') {
     mine = true;
     if (/tv\+|connect|go\b|app|cast/i.test(name)) kind = 'stream';
+  } else {
+    mine = false; // informational country
+    if (/peacock|paramount|fubo|dazn|stan|hotstar|sony ?liv|espn\+|now\b|app|\+$|sling|siriusxm/i.test(name)) kind = 'stream';
   }
   return { name, num, is4k, tbc, mine, kind };
 }
@@ -143,10 +155,10 @@ function ukRule(comp, fx, overlap) {
 
 function ilRule(comp, fx, overlap) {
   switch (comp) {
-    case 'PL': return R(overlap > 2 ? 'uncertain' : 'likely', CHARLTON, [
-      'Premier League in Israel 2025–28: Charlton (Sport 1–4; Sport 1 is the flagship).',
-      overlap > 2 ? `${overlap} PL games at once: Charlton shows only a selection live (e.g. 2 of 6 at 3pm on 21 Nov 2026), some on Sport 6 which is not in your list.` : 'Big single-slot games usually go on Sport 1.',
-    ], { oneOf: true });
+    case 'PL': return R('likely', CHARLTON, [
+      'Premier League in Israel 2025–28: Charlton, which carries essentially every match on Sport 1–4 (Sport 1 is the flagship).',
+      overlap > 1 ? `${overlap} PL games at once: they are spread over Sport 1–4 (+ Sport 6), and Saturday 3pm games may be in a multi-game show ("חגיגה אנגלית") on Sport 1.` : '',
+    ].filter(Boolean), { oneOf: true });
     case 'CHAMP': return R('uncertain', CHARLTON, ['Charlton has EFL Championship rights 2024–28 but shows only selected games.'], { oneOf: true });
     case 'UEL': case 'UECL': return R('likely', CHARLTON, ['Europa League & Conference League in Israel 2024–27: Charlton.'], { oneOf: true });
     case 'UCL': return R('likely', overlap > 1 ? SPORT5 : ['5Stars', 'Sport 5 4K'], ['Champions League in Israel 2024–27: Sport 5 (RGE "ערוץ הספורט"). From 2027/28 the rights move to DAZN.'], { oneOf: true });
@@ -178,7 +190,40 @@ function sgRule(comp, fx, overlap) {
   }
 }
 
+const INFO_RULES = {
+  US: {
+    PL: [['USA Network', 'NBC', 'Peacock'], 'Premier League USA 2022–28: NBC Sports (NBC, USA Network, Peacock streams every game).'],
+    UCL: [['Paramount+', 'CBS Sports Network / Golazo (selected)'], 'Champions League USA 2024–30: CBS / Paramount+ (every match on Paramount+); TUDN Spanish.'],
+    UEL: [['Paramount+'], 'UEFA club competitions USA: CBS / Paramount+.'], UECL: [['Paramount+'], 'UEFA club competitions USA: CBS / Paramount+.'],
+    CHAMP: [['Paramount+', 'CBS Sports Network'], 'EFL in the USA: CBS / Paramount+.'], EFLC: [['Paramount+'], 'Carabao Cup USA: CBS / Paramount+.'],
+    FAC: [['ESPN+'], 'FA Cup USA: ESPN / ESPN+.', 'uncertain'], LALIGA: [['ESPN+', 'ESPN'], 'LaLiga USA: ESPN.'], BUND: [['ESPN+'], 'Bundesliga USA: ESPN.'],
+    SERIEA: [['Paramount+', 'CBS'], 'Serie A USA: CBS / Paramount+.'], L1: [['beIN Sports'], 'Ligue 1 USA: beIN Sports.', 'uncertain'],
+  },
+  AU: {
+    PL: [['Stan Sport'], 'Premier League Australia 2025–28: Stan Sport (premierleague.com).'],
+    UCL: [['Stan Sport'], 'Champions League Australia 2024–27: Stan Sport (UEFA broadcaster list).'], UEL: [['Stan Sport'], 'UEFA club competitions Australia: Stan Sport.'], UECL: [['Stan Sport'], 'UEFA club competitions Australia: Stan Sport.'],
+    LALIGA: [['beIN Sports'], 'LaLiga Australia: beIN Sports.', 'uncertain'], BUND: [['beIN Sports'], 'Bundesliga Australia: beIN Sports.', 'uncertain'],
+  },
+  CA: {
+    PL: [['Fubo Canada', 'DAZN Canada'], 'Premier League Canada 2025–28: Fubo (premierleague.com); listings also show DAZN Canada.'],
+    UCL: [['DAZN Canada'], 'Champions League Canada 2024–27: DAZN (and OneSoccer) per UEFA.'], UEL: [['DAZN Canada'], 'UEFA club competitions Canada: DAZN.'], UECL: [['DAZN Canada'], 'UEFA club competitions Canada: DAZN.'],
+    SERIEA: [['TSN', 'TSN+'], 'Serie A Canada: TSN.', 'uncertain'], BUND: [['DAZN Canada'], 'Bundesliga Canada: DAZN.', 'uncertain'], LALIGA: [['TSN+'], 'LaLiga Canada: TSN.', 'uncertain'],
+  },
+  IN: {
+    PL: [['Star Sports Select', 'JioHotstar'], 'Premier League India 2025–28: JioStar (Star Sports Select, JioHotstar) per premierleague.com.'],
+    UCL: [['Sony Sports Ten', 'Sony LIV'], 'Champions League India 2024–27: Sony Sports Network / Sony LIV (UEFA list).'], UEL: [['Sony Sports Ten', 'Sony LIV'], 'UEFA club competitions India: Sony.'], UECL: [['Sony LIV'], 'UEFA club competitions India: Sony.'],
+    LALIGA: [['FanCode'], 'LaLiga India: FanCode.', 'uncertain'],
+  },
+};
+function infoRule(region, comp) {
+  if (comp === 'ISR' || comp === 'ISRCUP') return R('none', [], [`No ${REGIONS[region].name} broadcaster for Israeli football found.`]);
+  const r = INFO_RULES[region]?.[comp];
+  if (!r) return R('uncertain', [], [`No verified ${REGIONS[region].name} rights rule for this competition.`]);
+  return R(r[2] || 'likely', r[0], [r[1]], { oneOf: r[0].length > 1 });
+}
+
 export function ruleFor(region, comp, fx, overlap) {
+  if (REGIONS[region].info) return infoRule(region, comp);
   if (region === 'UK') return ukRule(comp, fx, overlap);
   if (region === 'IL') return ilRule(comp, fx, overlap);
   return sgRule(comp, fx, overlap);
@@ -222,39 +267,54 @@ export function findListing(listings, region, fx) {
 
 // ---------- the engine ----------
 // fx: { kickoff, home, away, comp }  ctx: { listings, horizon: {UK, IL, SG} (ISO), overlap }
+const asChan = (region, c) => ({ ...classify(region, c), name: c, is4k: /4k|ultra hdr|ultimate/i.test(c) });
+// Israeli broadcasters that are NOT his (an explicit listing on one of these is real evidence).
+const IL_OTHER = /^(one|one ?2|one sport|dazn|ספורט 5? ?\+|i24|kan|keshet|reshet)/i;
+
 export function channelsFor(fx, ctx) {
   const comp = fx.comp;
   const out = {};
-  for (const region of ['UK', 'IL', 'SG']) {
+  const now = Date.now();
+  for (const region of [...MY_REGIONS, ...INFO_REGIONS]) {
+    const info = !!REGIONS[region].info;
     const rule = ruleFor(region, comp, fx, ctx.overlap || 1);
-    const listing = findListing(ctx.listings, region, fx);
-    const farAhead = new Date(fx.kickoff).getTime() - Date.now() > 2 * 86400e3;
-    if (listing && region !== 'UK' && !listing.channels.length && farAhead) {
-      const chans = rule.channels.map((c) => ({ ...classify(region, c), mine: true, name: c, is4k: /4k/i.test(c) }));
-      out[region] = { ...rule, channels: chans, status: rule.status === 'likely' ? 'likely' : rule.status, url: listing.url, why: rule.status === 'none' ? rule.why : [`${listing.source} has the match but no ${REGIONS[region].name} channel yet (usually added a few days before).`, ...rule.why] };
-      continue;
-    }
-    if (listing) {
-      const chans = listing.channels.map((c) => classify(region, c));
-      const mine = chans.filter((c) => c.mine);
-      const others = chans.filter((c) => !c.mine);
-      if (mine.length) {
-        out[region] = { status: 'confirmed', channels: mine, others, source: listing.source, url: listing.url, why: [`Listed by ${listing.source}.`, ...rule.why.slice(0, 1)] };
-      } else {
-        out[region] = { status: 'none', channels: [], others, source: listing.source, url: listing.url, why: [others.length ? `Listed by ${listing.source}, but only on channels you don't have.` : `${listing.source} lists the match with no ${REGIONS[region].name} TV channel.`, ...rule.why] };
+    const ruleChans = rule.channels.map((c) => ({ ...asChan(region, c), mine: !info }));
+    // 1) Israel: Charlton's own EPG beats everything.
+    if (region === 'IL' && ctx.charlton?.length) {
+      const hit = charltonFor(fx, ctx.charlton, ctx.overlap || 1);
+      if (hit) {
+        const chans = [...new Set(hit.shows.map((s) => s.channel))].map((c) => ({ ...asChan(region, c), mine: true }));
+        const show = hit.shows[0];
+        const why = [`Charlton's TV schedule: "${show.title}" live on ${chans.map((c) => c.name).join(', ')}.`];
+        if (hit.how === 'multi') why.push('This is Charlton\'s multi-game show for this kick-off slot; it carries the games live, switching between them.');
+        out[region] = { status: 'confirmed', channels: chans, others: [], source: 'Charlton EPG (sport1.maariv.co.il)', url: 'https://sport1.maariv.co.il/broadcast-schedule/', why: [...why, ...rule.why.slice(0, 1)] };
+        continue;
       }
-      continue;
     }
-    // No listing. If the fixture is inside the listing source's horizon, "not listed" is itself evidence.
-    const horizon = ctx.horizon?.[region];
-    const inHorizon = horizon && new Date(fx.kickoff) <= new Date(horizon) && new Date(fx.kickoff) >= new Date(ctx.generatedAt || 0);
-    const chans = rule.channels.map((c) => ({ ...classify(region, c), mine: true, name: c, is4k: /4k/i.test(c) }));
-    if (region === 'UK' && inHorizon && ['PL', 'CHAMP', 'EFLC', 'FAC', 'UCL', 'UEL', 'UECL'].includes(comp)) {
-      if (rule.status === 'none') out[region] = { ...rule, channels: [], why: [...rule.why, 'Not in the UK TV listings either.'], status: 'none', confirmedNone: true };
-      else out[region] = { ...rule, channels: chans, status: 'uncertain', why: ['Not (yet) in the UK TV listings.', ...rule.why] };
-      continue;
+    const listing = findListing(ctx.listings, region, fx);
+    const chans = listing ? listing.channels.map((c) => classify(region, c)) : [];
+    const mine = chans.filter((c) => c.mine), others = chans.filter((c) => !c.mine);
+    // 2) A listing that names channels.
+    if (listing && chans.length) {
+      if (info) { out[region] = { status: 'confirmed', channels: chans, others: [], source: listing.source, url: listing.url, why: [`Listed by ${listing.source}.`, ...rule.why] }; continue; }
+      if (mine.length) { out[region] = { status: 'confirmed', channels: mine, others, source: listing.source, url: listing.url, why: [`Listed by ${listing.source}.`, ...rule.why.slice(0, 1)] }; continue; }
+      if (region !== 'IL' || others.some((c) => IL_OTHER.test(c.name))) {
+        out[region] = { status: 'none', channels: [], others, source: listing.source, url: listing.url, why: [`Listed by ${listing.source}, but only on channels you don't have.`, ...rule.why] };
+        continue;
+      }
     }
-    out[region] = { ...rule, channels: chans };
+    // 3) A listing without channels for this country is NOT evidence of "not on TV" (except the UK listing, see 4).
+    if (region === 'UK') {
+      const horizon = ctx.horizon?.UK;
+      const inHorizon = horizon && new Date(fx.kickoff) <= new Date(horizon) && new Date(fx.kickoff) >= new Date(ctx.generatedAt || 0);
+      if (!listing && inHorizon && ['PL', 'CHAMP', 'EFLC', 'FAC', 'UCL', 'UEL', 'UECL'].includes(comp)) {
+        if (rule.status === 'none') out[region] = { ...rule, channels: [], why: [...rule.why, 'Not in the UK TV listings either.'], confirmedNone: true };
+        else out[region] = { ...rule, channels: ruleChans, status: 'uncertain', why: ['Not (yet) in the UK TV listings.', ...rule.why] };
+        continue;
+      }
+    }
+    const note = listing && !chans.length && rule.status !== 'none' ? [`${listing.source} has no ${REGIONS[region].name} channel for this match (its data is incomplete, so the rights rules decide).`] : [];
+    out[region] = { ...rule, channels: ruleChans, url: listing?.url, why: [...note, ...rule.why] };
   }
   return out;
 }

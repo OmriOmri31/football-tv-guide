@@ -27,8 +27,8 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p _site/data
-          cp index.html app.js rules.js style.css _site/
-          cp data/listings.json _site/data/
+          cp index.html app.js rules.js charlton.js style.css _site/
+          cp data/listings.json _site/data/ && (cp data/charlton.json _site/data/ || true)
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
