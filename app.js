@@ -106,7 +106,7 @@ const STATUS = {
   none: ['Not on your channels', ''],
 };
 function chip(c) {
-  return el('span', { class: `chip${c.is4k ? ' k4' : ''}${c.kind === 'stream' ? ' stream' : ''}` }, c.tbc ? `${c.name.replace(/\s*TBC/i, '')} (channel TBC)` : c.name, c.num ? el('small', {}, ` ch ${c.num}`) : null, c.is4k ? el('b', {}, '4K') : null);
+  return el('span', { class: `chip${c.is4k ? ' k4' : ''}${c.kind === 'stream' ? ' stream' : ''}` }, c.name, c.num ? el('small', {}, ` ch ${c.num}`) : null, c.is4k ? el('b', {}, '4K') : null, c.flag ? el('em', { class: 'flag' }, ` · ${c.flag}`) : null);
 }
 function regionBlock(region, r) {
   const [label, sub] = STATUS[r.status] || STATUS.notlisted;
@@ -128,7 +128,7 @@ function infoRow(region, r) {
   const [label] = STATUS[r.status] || STATUS.notlisted;
   return el('div', { class: 'irow' },
     el('span', { class: 'iname' }, `${R.flag} ${R.name}`),
-    el('span', { class: 'ichans' }, r.channels.length ? r.channels.map((c) => c.name).join(' · ') : (r.status === 'none' ? (r.why[0] || 'no broadcaster') : 'not listed yet')),
+    el('span', { class: 'ichans' }, r.channels.length ? r.channels.map((c) => c.name + (c.flag ? ` (${c.flag})` : '')).join(' · ') : (r.status === 'none' ? (r.why[0] || 'no broadcaster') : 'not listed yet')),
     el('span', { class: `badge sm ${r.status}`, title: r.why.join(' ') }, r.status === 'none' ? 'None' : label));
 }
 function countdown(iso) {

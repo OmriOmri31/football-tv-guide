@@ -76,7 +76,20 @@ export function classify(region, raw) {
     mine = false; // informational country
     if (/peacock|paramount|fubo|dazn|stan|hotstar|sony ?liv|espn\+|now\b|app|\+$|sling|siriusxm/i.test(name)) kind = 'stream';
   }
-  return { name, num, is4k, tbc, mine, kind };
+  const family = isFamily(name);
+  return { name, num, is4k, tbc, mine, kind, family };
+}
+
+// A network family / package rather than one exact channel (e.g. "TSN", "NBC", "Sky Sports TBC",
+// "TSN Premium", "Fubo Sports Network Canada"). Shown only when no guide names the exact channel,
+// and then flagged "exact channel not published yet".
+const FAMILY_ROOTS = /^(nbc|nbc sports|tsn|sky sports?|tnt sports|hub premier|hub sports|star sports|fox|fox sports|espn|cbs|premier sports|bbc|sport|mio sports|fubo sports network|optus sport|sony sports|sony ten)$/i;
+export function familyRoot(name) {
+  return name.replace(/\s*(tbc|premium|canada|uk|usa|singapore|new zealand|nz)\s*$/i, '').replace(/\s*(tbc|premium)\s*$/i, '').trim();
+}
+export function isFamily(name) {
+  if (/^tbc$/i.test(name.trim()) || /\btbc\b/i.test(name)) return true;
+  return FAMILY_ROOTS.test(familyRoot(name));
 }
 
 // ---------- time helpers ----------
@@ -282,7 +295,8 @@ const PUBLISH = {
   IL: "Charlton's schedule covers about the next 7 days; livesoccertv usually adds Israeli channels a few days before kick-off.",
   SG: 'livesoccertv usually adds Singapore channels a few days before kick-off.',
 };
-const nkey = (n) => n.toLowerCase().replace(/[^a-z0-9]/g, '');
+const CH_ALIAS = { skyultrahd: 'skysportsultrahdr', itv1uk: 'itv1', stvscotland: 'stv', bbcsportweb: 'bbcsportwebsite', daznuk: 'dazn' };
+const nkey = (n) => { const k = n.toLowerCase().replace(/[^a-z0-9+]/g, ''); return CH_ALIAS[k] || k; };
 
 // Every channel shown must come from a real TV guide. The rights rules are NOT shown;
 // they only add context ("who holds the rights") to the Why text of guide-backed results.
@@ -320,7 +334,15 @@ export function channelsFor(fx, ctx) {
         if (!merged.has(k)) merged.set(k, { ...c, guides: [] });
         if (!merged.get(k).guides.includes(s.name)) merged.get(k).guides.push(s.name);
       }
-      const all = [...merged.values()];
+      // Exact names win: drop a family entry ("Sky Sports TBC", "TSN") when any guide names a channel of that family.
+      let all = [...merged.values()];
+      all = all.filter((c) => {
+        if (!c.family) return true;
+        const root = familyRoot(c.name).toLowerCase().replace(/\s*tbc$/, '');
+        if (!root) return !all.some((o) => !o.family && o.kind !== 'stream');
+        return !all.some((o) => o !== c && !o.family && o.name.toLowerCase().startsWith(root));
+      });
+      for (const c of all) if (c.family) c.flag = 'exact channel not published yet';
       const mine = info ? all : all.filter((c) => c.mine), others = info ? [] : all.filter((c) => !c.mine);
       const listedBy = sources.map((s) => s.name);
       const why = [...epgWhy, ...sources.filter((s) => s.name !== "Charlton's TV schedule").map((s) => `${s.name} lists: ${s.channels.map((c) => c.name).join(', ')}.`)];

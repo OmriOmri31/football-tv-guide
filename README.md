@@ -12,3 +12,5 @@ Channels covered: **UK** Sky Sports and TNT Sports (incl. 4K: Sky Sports Ultra H
 No API keys or secrets. Always double-check the broadcaster's own guide.
 
 USA, Australia, Canada, India, New Zealand are informational regions: their guide-listed channels are shown separately from my own channels.
+
+Channel names are shown exactly as listed (e.g. "TSN4", "Sky Sports Premier League", "Hub Premier 2"). A family/package name ("TSN", "NBC", "Sky Sports TBC", "TSN Premium") is dropped if any guide names the exact channel, otherwise flagged "exact channel not published yet".
