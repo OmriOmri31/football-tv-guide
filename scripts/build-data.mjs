@@ -87,7 +87,7 @@ const LSTV_COMPS = new Set([
   'Spain - La Liga', 'Spain - Copa del Rey', 'Germany - Bundesliga', 'Germany - DFB Pokal', 'Italy - Serie A', 'Italy - Coppa Italia', 'France - Ligue 1',
   'Scotland - Scottish Premiership', 'Israel - Ligat Ha\'Al', 'Israel - State Cup', 'Israel - Toto Cup',
 ]);
-const KEEP_COUNTRIES = { Israel: 'IL', Singapore: 'SG', USA: 'US', Australia: 'AU', Canada: 'CA', India: 'IN' };
+const KEEP_COUNTRIES = { Israel: 'IL', Singapore: 'SG', USA: 'US', Australia: 'AU', Canada: 'CA', India: 'IN', 'New Zealand': 'NZ' };
 
 function ymd(d) { return d.toISOString().slice(0, 10); }
 

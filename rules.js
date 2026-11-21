@@ -10,9 +10,10 @@ export const REGIONS = {
   AU: { name: 'Australia', flag: '🇦🇺', tz: 'Australia/Sydney', info: true },
   CA: { name: 'Canada', flag: '🇨🇦', tz: 'America/Toronto', info: true },
   IN: { name: 'India', flag: '🇮🇳', tz: 'Asia/Kolkata', info: true },
+  NZ: { name: 'New Zealand', flag: '🇳🇿', tz: 'Pacific/Auckland', info: true },
 };
 export const MY_REGIONS = ['UK', 'IL', 'SG'];
-export const INFO_REGIONS = ['US', 'AU', 'CA', 'IN'];
+export const INFO_REGIONS = ['US', 'AU', 'CA', 'IN', 'NZ'];
 import { charltonFor } from './charlton.js';
 
 // ---------- competition keys ----------
@@ -208,6 +209,10 @@ const INFO_RULES = {
     PL: [['Fubo Canada', 'DAZN Canada'], 'Premier League Canada 2025–28: Fubo (premierleague.com); listings also show DAZN Canada.'],
     UCL: [['DAZN Canada'], 'Champions League Canada 2024–27: DAZN (and OneSoccer) per UEFA.'], UEL: [['DAZN Canada'], 'UEFA club competitions Canada: DAZN.'], UECL: [['DAZN Canada'], 'UEFA club competitions Canada: DAZN.'],
     SERIEA: [['TSN', 'TSN+'], 'Serie A Canada: TSN.', 'uncertain'], BUND: [['DAZN Canada'], 'Bundesliga Canada: DAZN.', 'uncertain'], LALIGA: [['TSN+'], 'LaLiga Canada: TSN.', 'uncertain'],
+  },
+  NZ: {
+    PL: [['Sky Sport NZ (Sky Sport 1–9)', 'Sky Sport Now'], 'Premier League New Zealand 2025–28: Sky NZ (premierleague.com).'],
+    UCL: [['DAZN New Zealand'], 'Champions League New Zealand 2024–27: DAZN (UEFA broadcaster list).'], UEL: [['DAZN New Zealand'], 'UEFA club competitions New Zealand: DAZN.', 'uncertain'], UECL: [['DAZN New Zealand'], 'UEFA club competitions New Zealand: DAZN.', 'uncertain'],
   },
   IN: {
     PL: [['Star Sports Select', 'JioHotstar'], 'Premier League India 2025–28: JioStar (Star Sports Select, JioHotstar) per premierleague.com.'],
