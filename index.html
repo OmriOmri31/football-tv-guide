@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Football TV Guide · Where's the game on?</title>
+<meta name="description" content="Which of your channels (Sky, TNT, Sport 1–5, Singapore) show the next match.">
+<meta name="theme-color" content="#0d1b2a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📺</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brand">📺 Football TV Guide</div>
+    <form id="form" autocomplete="off" role="search">
+      <input id="q" type="search" placeholder="Search any team… (e.g. Arsenal, Real Madrid, Maccabi Haifa)" aria-label="Search team">
+      <div id="suggest"></div>
+    </form>
+    <div class="quick">
+      <button type="button" data-team="spurs">Spurs</button>
+      <button type="button" data-team="Arsenal">Arsenal</button>
+      <button type="button" data-team="Real Madrid">Real Madrid</button>
+      <button type="button" data-team="Maccabi Haifa">Maccabi Haifa</button>
+      <button type="button" data-team="Liverpool">Liverpool</button>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+  <h1 id="title">Tottenham Hotspur</h1>
+  <div id="results"></div>
+  <section class="legend">
+    <span class="badge confirmed">Confirmed</span> from a published TV listing ·
+    <span class="badge likely">Likely</span> from broadcast-rights rules ·
+    <span class="badge uncertain">Uncertain</span> rights or pick not verified ·
+    <span class="badge none">Not on your channels</span>
+  </section>
+  <p id="fresh" class="fresh"></p>
+  <details class="about">
+    <summary>How it works &amp; sources</summary>
+    <p>Fixtures come live from ESPN's public API (TheSportsDB as fallback). TV listings are refreshed every few hours by a GitHub Action: UK from live-footballontv.com, Israel and Singapore from livesoccertv.com match pages. A listing always wins; otherwise a rule engine uses competition, kick-off day/slot (incl. the UK Saturday 3pm blackout), region rights and how many games kick off at the same time.</p>
+    <p>Your channels: Sky Sports &amp; TNT Sports (UK, incl. 4K), TLC (only when a listing shows football on it), Charlton Sport 1–4 and the Sport 5 family (Israel), all Singapore sports channels (StarHub Hub Premier / Hub Sports, beIN SG, Singtel mio). Always double-check the broadcaster's own guide.</p>
+  </details>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
