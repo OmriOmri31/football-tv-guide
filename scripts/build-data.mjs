@@ -3,6 +3,7 @@
 //  - UK: live-footballontv.com (all UK football on TV, months ahead)
 //  - Israel + Singapore: livesoccertv.com match pages (per-country channel lists), next N days
 import { writeFile, mkdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 const run = promisify(execFile);
@@ -179,6 +180,20 @@ await mkdir('data', { recursive: true });
 const [uk, lstv, epg] = await Promise.all([ukListings(), lstvListings(), charltonEpg()]);
 if (epg) await writeFile('data/charlton.json', JSON.stringify(epg));
 console.log(`charlton EPG: ${epg ? epg.broadcast.reduce((n, c) => n + c.shows.length, 0) + ' shows' : 'unavailable'}`);
+// Carry over livesoccertv rows from the previous build for matches that are live / just started
+// (livesoccertv drops in-play games from its day pages) or for country rows that went missing this run.
+let carried = 0;
+const have = new Set(lstv.map((l) => `${l.url}|${l.region}`));
+const cutoff = Date.now() - 4 * 3600e3;
+for (const f of ['data/listings.json', '/tmp/live.json']) try {
+  const prev = JSON.parse(await readFile(f, 'utf8'));
+  for (const l of prev.listings || []) {
+    if (l.source !== 'livesoccertv.com' || new Date(l.kickoff).getTime() < cutoff) continue;
+    const k = `${l.url}|${l.region}`;
+    if (!have.has(k)) { lstv.push(l); have.add(k); carried++; }
+  }
+} catch { /* no previous snapshot */ }
+console.log(`carried over ${carried} livesoccertv rows from the previous build`);
 const data = {
   generatedAt: new Date().toISOString(),
   sources: {

@@ -22,6 +22,8 @@ jobs:
           node-version: 20
       - name: Build TV listings (keeps the committed snapshot if scraping fails)
         run: |
+          # Start from the currently deployed listings (newest), so rows for live games are carried over.
+          curl -sf https://omriomri31.github.io/football-tv-guide/data/listings.json -o /tmp/live.json || true
           cp data/listings.json /tmp/listings.seed.json || true
           node scripts/build-data.mjs || cp /tmp/listings.seed.json data/listings.json
       - name: Assemble site
