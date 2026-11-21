@@ -102,33 +102,33 @@ async function overlapFor(fx) {
 const fmt = (iso, tz, opts) => new Intl.DateTimeFormat('en-GB', { timeZone: tz, ...opts }).format(new Date(iso));
 const STATUS = {
   confirmed: ['Confirmed', 'From a TV listing'],
-  likely: ['Likely', 'From broadcast-rights rules'],
-  uncertain: ['Uncertain', 'Rights or pick not verified'],
+  notlisted: ['Not listed yet', 'No TV guide lists this match here yet'],
   none: ['Not on your channels', ''],
 };
 function chip(c) {
   return el('span', { class: `chip${c.is4k ? ' k4' : ''}${c.kind === 'stream' ? ' stream' : ''}` }, c.tbc ? `${c.name.replace(/\s*TBC/i, '')} (channel TBC)` : c.name, c.num ? el('small', {}, ` ch ${c.num}`) : null, c.is4k ? el('b', {}, '4K') : null);
 }
 function regionBlock(region, r) {
-  const [label, sub] = STATUS[r.status] || STATUS.uncertain;
+  const [label, sub] = STATUS[r.status] || STATUS.notlisted;
   const R = REGIONS[region];
   return el('div', { class: `region ${r.status}` },
     el('div', { class: 'rhead' },
       el('span', { class: 'rname' }, `${R.flag} ${R.name}`),
-      el('span', { class: `badge ${r.status}`, title: sub }, label)),
+      el('span', { class: `badge ${r.status}`, title: sub }, label),
+      r.guides?.length ? el('span', { class: 'guides' }, r.guides.length > 1 ? `${r.guides.length} guides` : r.guides[0]) : null),
     r.channels.length
-      ? el('div', { class: 'chips' }, r.oneOf && r.status !== 'confirmed' ? el('span', { class: 'oneof' }, 'one of:') : null, r.channels.map(chip))
-      : el('div', { class: 'nochan' }, r.status === 'none' ? r.why[0] : 'No channel confirmed yet – see why'),
+      ? el('div', { class: 'chips' }, r.channels.map(chip))
+      : el('div', { class: 'nochan' }, r.why[0]),
     r.others?.length ? el('div', { class: 'others' }, 'Also on (not yours): ', r.others.map((c) => c.name).join(', ')) : null,
     el('details', {}, el('summary', {}, 'Why'), el('ul', {}, r.why.map((w) => el('li', {}, w))),
-      r.url ? el('a', { href: r.url, target: '_blank', rel: 'noopener' }, 'Source listing') : null));
+      (r.sources || []).map((g) => el('a', { href: g.url, target: '_blank', rel: 'noopener', class: 'src' }, g.name))));
 }
 function infoRow(region, r) {
   const R = REGIONS[region];
-  const [label] = STATUS[r.status] || STATUS.uncertain;
+  const [label] = STATUS[r.status] || STATUS.notlisted;
   return el('div', { class: 'irow' },
     el('span', { class: 'iname' }, `${R.flag} ${R.name}`),
-    el('span', { class: 'ichans' }, r.channels.length ? r.channels.map((c) => c.name).join(' · ') : (r.status === 'none' ? 'no broadcaster found' : '—')),
+    el('span', { class: 'ichans' }, r.channels.length ? r.channels.map((c) => c.name).join(' · ') : (r.status === 'none' ? (r.why[0] || 'no broadcaster') : 'not listed yet')),
     el('span', { class: `badge sm ${r.status}`, title: r.why.join(' ') }, r.status === 'none' ? 'None' : label));
 }
 function countdown(iso) {

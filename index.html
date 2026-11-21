@@ -31,15 +31,14 @@
   <div id="results"></div>
   <section class="legend">
     <span class="badge confirmed">Confirmed</span> from a published TV listing ·
-    <span class="badge likely">Likely</span> from broadcast-rights rules ·
-    <span class="badge uncertain">Uncertain</span> rights or pick not verified ·
+    <span class="badge notlisted">Not listed yet</span> no TV guide lists it yet (no guessing) ·
     <span class="badge none">Not on your channels</span>
   </section>
   <p id="fresh" class="fresh"></p>
   <details class="about">
     <summary>How it works &amp; sources</summary>
-    <p>Fixtures come live from ESPN's public API (TheSportsDB as fallback). Israel uses Charlton's own TV schedule (sport1.maariv.co.il), loaded live. Other listings are refreshed every few hours by a GitHub Action: UK from live-footballontv.com; Israel, Singapore, USA, Australia, Canada, India, New Zealand and New Zealand from livesoccertv.com match pages. A listing always wins; otherwise a rule engine uses competition, kick-off day/slot (incl. the UK Saturday 3pm blackout), region rights and how many games kick off at the same time.</p>
-    <p>Your channels: Sky Sports &amp; TNT Sports (UK, incl. 4K), TLC (only when a listing shows football on it), Charlton Sport 1–4 (+ Sport 6) and the Sport 5 family (Israel), all Singapore sports channels (StarHub Hub Premier / Hub Sports, beIN SG, Singtel mio). USA, Australia, Canada, India, New Zealand and New Zealand are shown for reference only (their main rights holders), not as your channels. Always double-check the broadcaster's own guide.</p>
+    <p>Fixtures come live from ESPN's public API (TheSportsDB as fallback). Israel uses Charlton's own TV schedule (sport1.maariv.co.il), loaded live. Other listings are refreshed every few hours by a GitHub Action: UK from live-footballontv.com; UK (cross-check), Israel, Singapore, USA, Australia, Canada, India and New Zealand from livesoccertv.com match pages. Every channel shown comes from at least one of these guides, and channels from several guides are merged and cross-checked. Nothing is guessed: if no guide lists the match yet, it says “Not listed yet”.</p>
+    <p>Your channels: Sky Sports &amp; TNT Sports (UK, incl. 4K), TLC (only when a listing shows football on it), Charlton Sport 1–4 (+ Sport 6) and the Sport 5 family (Israel), all Singapore sports channels (StarHub Hub Premier / Hub Sports, beIN SG, Singtel mio). USA, Australia, Canada, India, New Zealand are shown for reference only (from the same guides), not as your channels. Always double-check the broadcaster's own guide.</p>
   </details>
 </main>
 <script type="module" src="app.js"></script>

@@ -276,50 +276,72 @@ const asChan = (region, c) => ({ ...classify(region, c), name: c, is4k: /4k|ultr
 // Israeli broadcasters that are NOT his (an explicit listing on one of these is real evidence).
 const IL_OTHER = /^(one|one ?2|one sport|dazn|ספורט 5? ?\+|i24|kan|keshet|reshet)/i;
 
+// When guides usually publish channels, per region (shown with "Not listed yet").
+const PUBLISH = {
+  UK: 'UK TV picks are announced in batches about 4–6 weeks ahead; live-footballontv lists them as soon as they are announced.',
+  IL: "Charlton's schedule covers about the next 7 days; livesoccertv usually adds Israeli channels a few days before kick-off.",
+  SG: 'livesoccertv usually adds Singapore channels a few days before kick-off.',
+};
+const nkey = (n) => n.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// Every channel shown must come from a real TV guide. The rights rules are NOT shown;
+// they only add context ("who holds the rights") to the Why text of guide-backed results.
 export function channelsFor(fx, ctx) {
   const comp = fx.comp;
   const out = {};
-  const now = Date.now();
   for (const region of [...MY_REGIONS, ...INFO_REGIONS]) {
     const info = !!REGIONS[region].info;
     const rule = ruleFor(region, comp, fx, ctx.overlap || 1);
-    const ruleChans = rule.channels.map((c) => ({ ...asChan(region, c), mine: !info }));
-    // 1) Israel: Charlton's own EPG beats everything.
+    const context = rule.channels?.length ? rule.why.slice(0, 1) : [];
+    const sources = []; // { name, url, channels: [classified] }
+    // Guide 1 (Israel): Charlton's own EPG.
+    let epgWhy = [];
     if (region === 'IL' && ctx.charlton?.length) {
       const hit = charltonFor(fx, ctx.charlton, ctx.overlap || 1);
       if (hit) {
-        const chans = [...new Set(hit.shows.map((s) => s.channel))].map((c) => ({ ...asChan(region, c), mine: true }));
-        const show = hit.shows[0];
-        const why = [`Charlton's TV schedule: "${show.title}" live on ${chans.map((c) => c.name).join(', ')}.`];
-        if (hit.how === 'multi') why.push('This is Charlton\'s multi-game show for this kick-off slot; it carries the games live, switching between them.');
-        out[region] = { status: 'confirmed', channels: chans, others: [], source: 'Charlton EPG (sport1.maariv.co.il)', url: 'https://sport1.maariv.co.il/broadcast-schedule/', why: [...why, ...rule.why.slice(0, 1)] };
-        continue;
+        const names = [...new Set(hit.shows.map((s) => s.channel))];
+        sources.push({ name: "Charlton's TV schedule", url: 'https://sport1.maariv.co.il/broadcast-schedule/', channels: names.map((c) => ({ ...asChan(region, c), mine: true })) });
+        epgWhy.push(`Charlton's TV schedule: "${hit.shows[0].title}" live on ${names.join(', ')}.`);
+        if (hit.how === 'multi') epgWhy.push("This is Charlton's multi-game show for this kick-off slot; it carries the games live, switching between them.");
       }
     }
-    const listing = findListing(ctx.listings, region, fx);
-    const chans = listing ? listing.channels.map((c) => classify(region, c)) : [];
-    const mine = chans.filter((c) => c.mine), others = chans.filter((c) => !c.mine);
-    // 2) A listing that names channels.
-    if (listing && chans.length) {
-      if (info) { out[region] = { status: 'confirmed', channels: chans, others: [], source: listing.source, url: listing.url, why: [`Listed by ${listing.source}.`, ...rule.why] }; continue; }
-      if (mine.length) { out[region] = { status: 'confirmed', channels: mine, others, source: listing.source, url: listing.url, why: [`Listed by ${listing.source}.`, ...rule.why.slice(0, 1)] }; continue; }
-      if (region !== 'IL' || others.some((c) => IL_OTHER.test(c.name))) {
-        out[region] = { status: 'none', channels: [], others, source: listing.source, url: listing.url, why: [`Listed by ${listing.source}, but only on channels you don't have.`, ...rule.why] };
-        continue;
-      }
+    // Guides 2+: every listing source that has a row for this match and country.
+    const bySource = {};
+    for (const l of ctx.listings) if (l.region === region) (bySource[l.source] ||= []).push(l);
+    for (const [src, ls] of Object.entries(bySource)) {
+      const l = findListing(ls, region, fx);
+      if (l && l.channels.length) sources.push({ name: src, url: l.url, channels: l.channels.map((c) => classify(region, c)) });
     }
-    // 3) A listing without channels for this country is NOT evidence of "not on TV" (except the UK listing, see 4).
+    if (sources.length) {
+      // Merge channels across guides and count how many guides list each one.
+      const merged = new Map();
+      for (const s of sources) for (const c of s.channels) {
+        const k = nkey(c.name);
+        if (!merged.has(k)) merged.set(k, { ...c, guides: [] });
+        if (!merged.get(k).guides.includes(s.name)) merged.get(k).guides.push(s.name);
+      }
+      const all = [...merged.values()];
+      const mine = info ? all : all.filter((c) => c.mine), others = info ? [] : all.filter((c) => !c.mine);
+      const listedBy = sources.map((s) => s.name);
+      const why = [...epgWhy, ...sources.filter((s) => s.name !== "Charlton's TV schedule").map((s) => `${s.name} lists: ${s.channels.map((c) => c.name).join(', ')}.`)];
+      if (sources.length > 1) why.push(`Cross-checked in ${sources.length} guides.`);
+      if (mine.length) { out[region] = { status: 'confirmed', channels: mine, others, sources, guides: listedBy, url: sources[0].url, why: [...why, ...context] }; continue; }
+      out[region] = { status: 'none', channels: [], others, sources, guides: listedBy, url: sources[0].url, why: [`Listed by ${listedBy.join(' and ')}, but only on channels you don't have.`, ...why] };
+      continue;
+    }
+    // No guide lists this match for this country.
     if (region === 'UK') {
+      // live-footballontv lists every televised UK game; within the next 7 days all picks are final,
+      // so "not in the guide" means "not on UK TV" (a guide fact, not a rule).
       const horizon = ctx.horizon?.UK;
-      const inHorizon = horizon && new Date(fx.kickoff) <= new Date(horizon) && new Date(fx.kickoff) >= new Date(ctx.generatedAt || 0);
-      if (!listing && inHorizon && ['PL', 'CHAMP', 'EFLC', 'FAC', 'UCL', 'UEL', 'UECL'].includes(comp)) {
-        if (rule.status === 'none') out[region] = { ...rule, channels: [], why: [...rule.why, 'Not in the UK TV listings either.'], confirmedNone: true };
-        else out[region] = { ...rule, channels: ruleChans, status: 'uncertain', why: ['Not (yet) in the UK TV listings.', ...rule.why] };
+      const t = new Date(fx.kickoff).getTime();
+      const soon = t - Date.now() <= 7 * 864e5;
+      if (soon && horizon && t <= new Date(horizon).getTime() && ['PL', 'CHAMP', 'EFLC', 'FAC', 'UCL', 'UEL', 'UECL'].includes(comp)) {
+        out[region] = { status: 'none', channels: [], others: [], guides: ['live-footballontv.com'], url: 'https://www.live-footballontv.com/', why: ['Not in the UK TV guide (live-footballontv.com lists every televised UK game), so it is not live on UK TV.', ...(rule.status === 'none' ? rule.why : [])] };
         continue;
       }
     }
-    const note = listing && !chans.length && rule.status !== 'none' ? [`${listing.source} has no ${REGIONS[region].name} channel for this match (its data is incomplete, so the rights rules decide).`] : [];
-    out[region] = { ...rule, channels: ruleChans, url: listing?.url, why: [...note, ...rule.why] };
+    out[region] = { status: 'notlisted', channels: [], others: [], guides: [], why: ['No TV guide lists a channel for this match in this country yet.', ...(PUBLISH[region] ? [PUBLISH[region]] : [])] };
   }
   return out;
 }
