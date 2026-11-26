@@ -40,10 +40,10 @@ const HE = {
   "עירוני ק\"ש": 'Ironi Kiryat Shmona', "עירוני קרית שמונה": 'Ironi Kiryat Shmona', "מ.ס אשדוד": 'Ashdod', "אשדוד": 'Ashdod', "הפועל ירושלים": 'Hapoel Jerusalem', "הפועל קטמון": 'Hapoel Katamon',
   "מכבי בני ריינה": 'Maccabi Raina', "הפועל חדרה": 'Hapoel Hadera',
 };
-const clean = (s) => s.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
-const heToEn = (s) => HE[clean(s)] || null;
+export const cleanHe = (s) => s.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+export const heToEn = (s) => HE[cleanHe(s)] || null;
 
-function israelToUtc(local) { // "YYYY-MM-DD HH:MM:SS" in Asia/Jerusalem
+export function israelToUtc(local) { // "YYYY-MM-DD HH:MM:SS" in Asia/Jerusalem
   const [d, t] = local.split(' ');
   const [y, m, dd] = d.split('-').map(Number), [hh, mi] = t.split(':').map(Number);
   for (const off of [2, 3]) {
@@ -62,7 +62,7 @@ export function parseEpg(epg) {
       if (!s.live) continue; // live broadcasts only (no replays / condensed)
       const desc = (s.description || '').trim();
       const comp = (COMP_HE.find(([re]) => re.test(desc)) || [])[1] || null;
-      const title = clean(s.title || '');
+      const title = cleanHe(s.title || '');
       const parts = title.split(' - ');
       const multi = parts.length < 2 && /חגיגה|כל המשחקים|ערב אנגלי|מחזור/.test(title) && !!comp;
       if (parts.length < 2 && !multi) continue;

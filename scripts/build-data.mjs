@@ -169,6 +169,51 @@ async function lstvListings() {
   return out;
 }
 
+
+// Official Sport 5 schedule (separate tab per channel, including 4K).
+const SPORT5_TABS = { '5': 'Sport 5', '5P': 'Sport 5 Plus', LIVE: 'Sport 5 Live', '5STARS': 'Sport 5 Stars', '5MAX': 'Sport 5 Max', GOLD: 'Sport 5 Gold', '4K': 'Sport 5 4K' };
+function parseSport5Sheet(html, channel, dateP) {
+  const shows = [];
+  if (!html || /no-programs/.test(html)) return shows;
+  const rows = html.matchAll(/<tr\b[\s\S]*?<\/tr>/gi);
+  for (const row of rows) {
+    const tr = row[0];
+    if (/tr-header/.test(tr)) continue;
+    const timeM = tr.match(/(\d{1,2}:\d{2})/);
+    const titleM = tr.match(/class="text"[^>]*>([\s\S]*?)<\/td>/i);
+    if (!timeM || !titleM) continue;
+    const title = titleM[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!title) continue;
+    const live = /ישיר|img-live/i.test(tr);
+    const [hh, mm] = timeM[1].split(':').map(Number);
+    shows.push({ channel, title, date: dateP, time: `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`, live });
+  }
+  return shows;
+}
+async function sport5Epg() {
+  const shows = [];
+  const now = new Date();
+  // Israel calendar day
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const [ys, ms, ds] = fmt.format(now).split('-').map(Number);
+  const origin = Date.UTC(ys, ms - 1, ds, 12);
+  const days = Number(process.env.SPORT5_DAYS || 8);
+  for (let i = 0; i < days; i++) {
+    const dt = new Date(origin + i * 86400000);
+    const y = dt.getUTCFullYear(), m = dt.getUTCMonth() + 1, d = dt.getUTCDate();
+    const dateP = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const date = `${y}-${m}-${d}`;
+    for (const typ of Object.keys(SPORT5_TABS)) {
+      const html = await get(`https://www.sport5.co.il/Ajax/GetBroadcastSheetData.aspx?Type=${encodeURIComponent(typ)}&Date=${dateP}`)
+        || await get(`https://www.sport5.co.il/Ajax/GetBroadcastSheetData.aspx?Type=${encodeURIComponent(typ)}&Date=${date}`);
+      await sleep(150);
+      if (!html) continue;
+      shows.push(...parseSport5Sheet(html, SPORT5_TABS[typ], dateP));
+    }
+  }
+  return { generatedAt: new Date().toISOString(), source: 'sport5.co.il', url: 'https://www.sport5.co.il/html/pages/broadcastsheet.html', shows };
+}
+
 // Charlton (Sport 1-4, 6) official EPG. The browser fetches it live; this snapshot is the fallback.
 async function charltonEpg() {
   const t = await get('https://sport1.maariv.co.il/wp-json/sport1/v1/broadcast');
@@ -177,9 +222,11 @@ async function charltonEpg() {
 }
 
 await mkdir('data', { recursive: true });
-const [uk, lstv, epg] = await Promise.all([ukListings(), lstvListings(), charltonEpg()]);
+const [uk, lstv, epg, sport5] = await Promise.all([ukListings(), lstvListings(), charltonEpg(), sport5Epg()]);
 if (epg) await writeFile('data/charlton.json', JSON.stringify(epg));
 console.log(`charlton EPG: ${epg ? epg.broadcast.reduce((n, c) => n + c.shows.length, 0) + ' shows' : 'unavailable'}`);
+if (sport5?.shows?.length) await writeFile('data/sport5.json', JSON.stringify(sport5));
+console.log(`sport5 EPG: ${sport5?.shows?.length || 0} shows (${sport5?.shows?.filter((x) => x.live && x.channel === 'Sport 5 4K').length || 0} live on 4K)`);
 // Carry over livesoccertv rows from the previous build for matches that are live / just started
 // (livesoccertv drops in-play games from its day pages) or for country rows that went missing this run.
 let carried = 0;
@@ -200,6 +247,7 @@ const data = {
     UK: { name: 'live-footballontv.com', count: uk.length },
     IL_SG: { name: 'livesoccertv.com', count: lstvCount, days: DAYS },
     IL_EPG: { name: 'sport1.maariv.co.il (Charlton EPG)', ok: !!epg },
+    IL_SPORT5: { name: 'sport5.co.il (Sport 5 official schedule, 4K is a separate tab)', ok: !!(sport5?.shows?.length), shows: sport5?.shows?.length || 0 },
   },
   listings: [...uk, ...lstv],
 };

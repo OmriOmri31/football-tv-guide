@@ -1,5 +1,6 @@
 import { REGIONS, MY_REGIONS, INFO_REGIONS, compKey, COMP_NAME, channelsFor, sameTeam, norm } from './rules.js';
 import { parseEpg } from './charlton.js';
+import { fetchSport5, hydrateShows, sport5Horizon } from './sport5.js';
 
 const ESPN = 'https://site.web.api.espn.com/apis/site/v2/sports/soccer';
 const ESPN_SEARCH = 'https://site.web.api.espn.com/apis/search/v2';
@@ -19,16 +20,31 @@ const getJSON = async (u) => { const r = await fetch(u); if (!r.ok) throw new Er
 
 let LISTINGS = { listings: [], generatedAt: null, sources: {} };
 let CHARLTON = [], CHARLTON_SRC = null;
+let SPORT5 = [], SPORT5_SRC = null, SPORT5_HORIZON = 0;
 async function loadListings() {
   const bust = Math.floor(Date.now() / 600000);
-  const [l, live] = await Promise.all([
+  const getText = async (u) => { const r = await fetch(u); if (!r.ok) return null; return r.text(); };
+  const [l, live, sport5Snap, sport5Live] = await Promise.all([
     getJSON(`data/listings.json?t=${bust}`).catch(() => null),
     getJSON('https://sport1.maariv.co.il/wp-json/sport1/v1/broadcast').catch(() => null), // Charlton EPG, live (CORS allows this site)
+    getJSON(`data/sport5.json?t=${bust}`).catch(() => null),
+    // Official Sport 5 + Sport 5 4K tabs, next 5 Israel days (CORS allows this site). Other Sport 5 channels stay on the snapshot.
+    fetchSport5(getText, { days: 5, types: ['5', '4K'] }).catch(() => []),
   ]);
   if (l) LISTINGS = l;
   let epg = live; CHARLTON_SRC = live ? 'live' : null;
   if (!epg) { epg = await getJSON(`data/charlton.json?t=${bust}`).catch(() => null); if (epg) CHARLTON_SRC = 'snapshot'; }
   CHARLTON = epg ? parseEpg(epg) : [];
+  const snapShows = hydrateShows(sport5Snap?.shows || []);
+  if (sport5Live?.length) {
+    // Live 5 + 4K rows replace snapshot rows for those channels; keep Plus/Live/Stars/Max/Gold from the snapshot.
+    const liveCh = new Set(sport5Live.map((s) => s.channel));
+    SPORT5 = [...snapShows.filter((s) => !liveCh.has(s.channel)), ...sport5Live];
+    SPORT5_SRC = 'live';
+  } else if (snapShows.length) {
+    SPORT5 = snapShows; SPORT5_SRC = 'snapshot';
+  }
+  SPORT5_HORIZON = sport5Horizon(SPORT5);
 }
 function horizons() {
   const max = {};
@@ -138,7 +154,7 @@ function countdown(iso) {
 }
 async function fixtureCard(fx, open) {
   const overlap = await overlapFor(fx);
-  const res = channelsFor(fx, { listings: LISTINGS.listings, horizon: horizons(), generatedAt: LISTINGS.generatedAt, overlap, charlton: CHARLTON });
+  const res = channelsFor(fx, { listings: LISTINGS.listings, horizon: horizons(), generatedAt: LISTINGS.generatedAt, overlap, charlton: CHARLTON, sport5: SPORT5, sport5Horizon: SPORT5_HORIZON });
   const live = fx.state === 'in';
   const ALL = [...MY_REGIONS, ...INFO_REGIONS];
   const chanCount = ALL.reduce((n, rg) => n + res[rg].channels.length, 0);
@@ -227,7 +243,7 @@ async function main() {
   });
   await loadListings();
   const g = LISTINGS.generatedAt;
-  $('#fresh').textContent = (g ? `Listings updated ${fmt(g, 'Asia/Jerusalem', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} (Israel time). ` : 'Listings unavailable – rules only. ') + `Charlton schedule: ${CHARLTON_SRC === 'live' ? 'live' : CHARLTON_SRC === 'snapshot' ? 'snapshot' : 'unavailable'}. Fixtures are fetched live.`;
+  $('#fresh').textContent = (g ? `Listings updated ${fmt(g, 'Asia/Jerusalem', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} (Israel time). ` : 'Listings unavailable – rules only. ') + `Charlton schedule: ${CHARLTON_SRC === 'live' ? 'live' : CHARLTON_SRC === 'snapshot' ? 'snapshot' : 'unavailable'}. Sport 5 schedule: ${SPORT5_SRC === 'live' ? 'live' : SPORT5_SRC === 'snapshot' ? 'snapshot' : 'unavailable'}. Fixtures are fetched live.`;
   const p = new URLSearchParams(location.search);
   const team = p.get('id') ? { source: p.get('src') || 'espn', id: p.get('id'), name: p.get('team') || 'Team' } : DEFAULT_TEAM;
   showTeam(team);

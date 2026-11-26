@@ -14,3 +14,5 @@ No API keys or secrets. Always double-check the broadcaster's own guide.
 All eight countries (UK, Israel, Singapore, USA, Australia, Canada, India, New Zealand) are shown equally; every channel a guide lists counts as available. 4K/Ultra HD channels (e.g. TNT Sports Ultimate, Sky Sports Ultra HDR) are bold only when the guide lists that 4K channel for the match itself.
 
 Channel names are shown exactly as listed (e.g. "TSN4", "Sky Sports Premier League", "Hub Premier 2"). A family/package name ("TSN", "NBC", "Sky Sports TBC", "TSN Premium") is dropped if any guide names the exact channel, otherwise flagged "exact channel not published yet".
+
+Sport 5 and Sport 5 4K are separate RGE channels and often carry different programmes. 4K is listed only when the official Sport 5 4K tab (sport5.co.il/html/pages/broadcastsheet.html) or another guide that explicitly names "Sport 5 4K" carries that exact match. It is never inferred from Sport 5, Sport 5 Max, or any other sibling.

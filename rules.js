@@ -15,6 +15,7 @@ export const REGIONS = {
 export const MY_REGIONS = ['UK', 'IL', 'SG'];
 export const INFO_REGIONS = ['US', 'AU', 'CA', 'IN', 'NZ'];
 import { charltonFor } from './charlton.js';
+import { sport5For, isSport5Family, isSport54K } from './sport5.js';
 
 // ---------- competition keys ----------
 const ESPN_COMP = {
@@ -52,16 +53,42 @@ export const COMP_NAME = {
 
 // ---------- which listed channels are Omri's ----------
 // UK: Sky Sports (all incl. Ultra HDR 4K), TNT Sports (all incl. Ultimate 4K), TLC (when it shows football).
-// IL: Charlton Sport 1-4 and the Sport 5 family (RGE: Sport 5, 5Plus, 5Live, 5Stars, 5Gold, 5 4K).
+// IL: Charlton Sport 1-4 and the Sport 5 family (RGE: Sport 5, Sport 5 Plus/Live/Stars/Max/Gold, and Sport 5 4K as a separate channel).
 //     Note: Charlton also runs Sport 6, which is NOT in the user's list.
 // SG: all Singapore sports channels (StarHub Hub Premier/Hub Sports, beIN SG, Singtel mio Sports, SPOTV...).
+export function displayName(region, raw) {
+  let name = raw.trim();
+  if (region === 'IL') {
+    const k = name.toLowerCase().replace(/[''׳״"]/g, '').replace(/\s+/g, ' ').trim();
+    const map = {
+      '5sport': 'Sport 5', 'sport 5': 'Sport 5', 'sport5': 'Sport 5',
+      '5sport 4k': 'Sport 5 4K', 'sport 5 4k': 'Sport 5 4K', 'sport54k': 'Sport 5 4K', '5sport4k': 'Sport 5 4K', '5 4k': 'Sport 5 4K',
+      'sport 5max': 'Sport 5 Max', 'sport 5 max': 'Sport 5 Max', '5max': 'Sport 5 Max', '5 max': 'Sport 5 Max',
+      '5plus': 'Sport 5 Plus', '5 plus': 'Sport 5 Plus', 'sport 5 plus': 'Sport 5 Plus', 'sport 5+': 'Sport 5 Plus',
+      '5stars': 'Sport 5 Stars', '5 stars': 'Sport 5 Stars', 'sport 5 stars': 'Sport 5 Stars',
+      '5gold': 'Sport 5 Gold', '5 gold': 'Sport 5 Gold', 'sport 5 gold': 'Sport 5 Gold',
+      '5live': 'Sport 5 Live', '5 live': 'Sport 5 Live', 'sport 5 live': 'Sport 5 Live',
+    };
+    if (map[k]) name = map[k];
+  }
+  return name;
+}
+
+// 4K only when the guide names that exact 4K/UHD channel for this match.
+// Never inferred from an HD sibling (Sport 5 ≠ Sport 5 4K; TNT Sports 2 ≠ TNT Sports Ultimate).
+// Sport 5 Max is a different RGE channel, not the 4K service.
+export function is4kName(name) {
+  if (/sport\s*5\s*max/i.test(name)) return false;
+  return /ultra\s*(hdr|hd)\b|\bultimate\b|\b4k\b|\buhd\b/i.test(name);
+}
+
 export function classify(region, raw) {
   let name = raw.trim();
   let num = null;
   const m = name.match(/^(\d{2,4})\s+(.*)$/); // "221 Hub Premier 1"
   if (m) { num = m[1]; name = m[2]; }
-  // 4K only when the guide names a 4K/UHD channel for this match (never inferred from the HD channel).
-  const is4k = /ultra ?hd|ultimate|\b4k\b|uhd/i.test(name);
+  name = displayName(region, name);
+  const is4k = is4kName(name);
   const tbc = /tbc/i.test(name);
   let mine = false, kind = 'tv';
   if (region === 'UK') {
@@ -69,7 +96,7 @@ export function classify(region, raw) {
     if (/hbo max|discovery\+|now\b|sky go|iplayer|youtube|website|app|play|prime/i.test(name)) kind = 'stream';
   } else if (region === 'IL') {
     // Charlton Sport 1-4 (+ Sport 6, same Charlton package) and the Sport 5 family (RGE).
-    mine = /^sport ?[1-46]\b/i.test(name) || /^(sport ?5|5 ?(plus|live|stars|gold|sport)|sport ?5 ?4k)/i.test(name);
+    mine = /^sport ?[1-46]\b/i.test(name) || isSport5Family(name) || isSport54K(name);
   } else if (region === 'SG') {
     mine = true;
     if (/tv\+|connect|go\b|app|cast/i.test(name)) kind = 'stream';
@@ -107,7 +134,7 @@ const SKY_SPREAD = ['Sky Sports Main Event', 'Sky Sports Premier League', 'Sky S
 const TNT_MAIN = ['TNT Sports 1', 'TNT Sports Ultimate (4K)'];
 const TNT_SPREAD = ['TNT Sports 1', 'TNT Sports 2', 'TNT Sports 3', 'TNT Sports 4', 'TNT Sports 5–10 (digital)', 'TNT Sports Ultimate (4K, top game)'];
 const CHARLTON = ['Sport 1', 'Sport 2', 'Sport 3', 'Sport 4'];
-const SPORT5 = ['Sport 5', '5Plus', '5Live', '5Stars', '5Gold', 'Sport 5 4K'];
+const SPORT5 = ['Sport 5', 'Sport 5 Plus', 'Sport 5 Live', 'Sport 5 Stars', 'Sport 5 Gold']; // Sport 5 4K is a separate channel — never bundled in
 const HUB_PREMIER = ['Hub Premier 1', 'Hub Premier 2', 'Hub Premier 3', 'Hub Premier 4', 'Hub Premier 5', 'Hub Premier 6'];
 const BEIN_SG = ['beIN Sports Singapore 1–5', 'beIN Sports Connect (stream)'];
 
@@ -176,7 +203,7 @@ function ilRule(comp, fx, overlap) {
     ].filter(Boolean), { oneOf: true });
     case 'CHAMP': return R('uncertain', CHARLTON, ['Charlton has EFL Championship rights 2024–28 but shows only selected games.'], { oneOf: true });
     case 'UEL': case 'UECL': return R('likely', CHARLTON, ['Europa League & Conference League in Israel 2024–27: Charlton.'], { oneOf: true });
-    case 'UCL': return R('likely', overlap > 1 ? SPORT5 : ['5Stars', 'Sport 5 4K'], ['Champions League in Israel 2024–27: Sport 5 (RGE "ערוץ הספורט"). From 2027/28 the rights move to DAZN.'], { oneOf: true });
+    case 'UCL': return R('likely', overlap > 1 ? SPORT5 : ['Sport 5 Stars'], ['Champions League in Israel 2024–27: Sport 5 (RGE "ערוץ הספורט"). From 2027/28 the rights move to DAZN. Sport 5 4K is a separate channel and is only listed when its own schedule carries the match.'], { oneOf: true });
     case 'USC': return R('uncertain', SPORT5, ['UEFA Super Cup in Israel: not verified (UCL holder Sport 5 is likely).'], { oneOf: true });
     case 'ISR': return R('likely', [...CHARLTON, 'Sport 5'], ["Ligat Ha'Al: Charlton holds the rights (Sport 1–4); the round's main match is on Sport 5."], { oneOf: true });
     case 'ISRCUP': return R('uncertain', [...CHARLTON, 'Sport 5'], ['Israeli cup rights not verified.'], { oneOf: true });
@@ -286,14 +313,14 @@ export function findListing(listings, region, fx) {
 
 // ---------- the engine ----------
 // fx: { kickoff, home, away, comp }  ctx: { listings, horizon: {UK, IL, SG} (ISO), overlap }
-const asChan = (region, c) => ({ ...classify(region, c), name: c, is4k: /4k|ultra hdr|ultimate/i.test(c) });
+const asChan = (region, c) => classify(region, c);
 // Israeli broadcasters that are NOT his (an explicit listing on one of these is real evidence).
 const IL_OTHER = /^(one|one ?2|one sport|dazn|ספורט 5? ?\+|i24|kan|keshet|reshet)/i;
 
 // When guides usually publish channels, per region (shown with "Not listed yet").
 const PUBLISH = {
   UK: 'UK TV picks are announced in batches about 4–6 weeks ahead; live-footballontv lists them as soon as they are announced.',
-  IL: "Charlton's schedule covers about the next 7 days; livesoccertv usually adds Israeli channels a few days before kick-off.",
+  IL: "Charlton's schedule covers about the next 7 days; Sport 5's own schedule (including the separate Sport 5 4K tab) is on sport5.co.il; livesoccertv usually adds Israeli channels a few days before kick-off.",
   SG: 'livesoccertv usually adds Singapore channels a few days before kick-off.',
 };
 const CH_ALIAS = { skyultrahd: 'skysportsultrahdr', itv1uk: 'itv1', stvscotland: 'stv', bbcsportweb: 'bbcsportwebsite', daznuk: 'dazn' };
@@ -320,6 +347,17 @@ export function channelsFor(fx, ctx) {
         if (hit.how === 'multi') epgWhy.push("This is Charlton's multi-game show for this kick-off slot; it carries the games live, switching between them.");
       }
     }
+    // Guide 1b (Israel): Sport 5's official schedule — Sport 5 and Sport 5 4K are separate tabs.
+    if (region === 'IL' && ctx.sport5?.length) {
+      const hit = sport5For(fx, ctx.sport5, ctx.overlap || 1);
+      if (hit) {
+        const names = [...new Set(hit.shows.map((s) => s.channel))];
+        sources.push({ name: "Sport 5's TV schedule", url: 'https://www.sport5.co.il/html/pages/broadcastsheet.html', channels: names.map((c) => classify(region, c)) });
+        epgWhy.push(`Sport 5's official schedule: "${hit.shows[0].title}" live on ${names.join(', ')}.`);
+        if (names.some((n) => isSport54K(n))) epgWhy.push("Sport 5 4K is a separate channel from Sport 5; it is listed only because the 4K channel's own schedule carries this match.");
+        else if (names.some(isSport5Family)) epgWhy.push('Sport 5 and Sport 5 4K are separate channels and often show different programmes (the 4K channel is not listed unless its own schedule carries this match).');
+      }
+    }
     // Guides 2+: every listing source that has a row for this match and country.
     const bySource = {};
     for (const l of ctx.listings) if (l.region === region) (bySource[l.source] ||= []).push(l);
@@ -344,13 +382,27 @@ export function channelsFor(fx, ctx) {
         return !all.some((o) => o !== c && !o.family && o.name.toLowerCase().startsWith(root));
       });
       for (const c of all) if (c.family) c.flag = 'exact channel not published yet';
+      // Official Sport 5 schedule is authoritative for the Sport 5 family, including 4K.
+      // A livesoccertv (or other) row must not turn "Sport 5" into "Sport 5 4K", or add 4K when the 4K tab does not list the match.
+      const official5 = sources.find((src) => src.name === "Sport 5's TV schedule");
+      const sport5Covered = ctx.sport5Horizon && new Date(fx.kickoff).getTime() <= ctx.sport5Horizon + 3 * 3600e3 && new Date(fx.kickoff).getTime() >= Date.now() - 4 * 3600e3;
+      if (official5) {
+        const ok = new Set(official5.channels.map((c) => nkey(c.name)));
+        all = all.filter((c) => !(isSport5Family(c.name) || isSport54K(c.name)) || ok.has(nkey(c.name)));
+      } else if (sport5Covered) {
+        // Official EPG covers this slot but this match is not on any Sport 5 channel: never add 4K from another guide.
+        all = all.filter((c) => !isSport54K(c.name));
+      }
       // Omri has every channel in every listed country, so everything a guide lists is shown. 4K first.
       all.sort((a, b) => (b.is4k ? 1 : 0) - (a.is4k ? 1 : 0) || (a.kind === 'stream') - (b.kind === 'stream'));
       const listedBy = sources.map((s) => s.name);
-      const why = [...epgWhy, ...sources.filter((s) => s.name !== "Charlton's TV schedule").map((s) => `${s.name} lists: ${s.channels.map((c) => c.name).join(', ')}.`)];
+      const why = [...epgWhy, ...sources.filter((s) => s.name !== "Charlton's TV schedule" && s.name !== "Sport 5's TV schedule").map((s) => `${s.name} lists: ${s.channels.map((c) => c.name).join(', ')}.`)];
       if (sources.length > 1) why.push(`Cross-checked in ${sources.length} guides.`);
       const k4 = all.filter((c) => c.is4k);
       if (k4.length) why.push(`4K: ${k4.map((c) => c.name).join(', ')} is listed by the guide for this match itself.`);
+      if (sources.some((src) => src.channels.some((c) => isSport54K(c.name))) && !all.some((c) => isSport54K(c.name))) {
+        why.push("A guide named Sport 5 4K, but the official Sport 5 4K schedule (a separate channel) does not list this match, so 4K is not shown.");
+      }
       out[region] = { status: 'confirmed', channels: all, others: [], sources, guides: listedBy, url: sources[0].url, why: [...why, ...context] };
       continue;
     }
